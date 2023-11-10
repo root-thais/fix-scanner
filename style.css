@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Hind+Madurai:wght@300;500;600;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Hind Madurai', sans-serif;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(90deg, #03a43172 35%, rgb(12, 148, 73) 100%);
+}
+
+.wrapper {
+  max-width: 410px;
+  padding: 16px;
+  border-radius: 7px;
+  background: #fff;
+  transition: height 0.5s ease;
+}
+
+.wrapper.active {
+  height: auto; /* Tamanho automático para acomodar o conteúdo */
+}
+
+header {
+  text-align: center;
+}
+
+header h1 {
+  font-weight: 500;
+  font-size: 21px;
+}
+
+header p {
+  margin-top: 5px;
+  color: #474747;
+  font-size: 16px;
+}
+
+.form input,
+.form button {
+  width: 100%;
+  height: 55px;
+  border: none;
+  outline: none;
+  border-radius: 5px;
+}
+
+.form input {
+  font-size: 18px;
+  padding: 0 17px;
+  border: 1px solid #999;
+}
+
+.form button {
+  color: #fff;
+  cursor: pointer;
+  margin-top: 20px;
+  font-size: 20px;
+  background: #3bb60e;
+}
+
+.qr-code {
+  display: flex;
+  opacity: 0;
+  pointer-events: none;
+  padding: 33px 0;
+  border-radius: 5px;
+  border: 1px solid #987a71;
+  align-items: center;
+  justify-content: center;
+}
+
+.img {
+  width: 200px;
+  height: auto;
+}
+
+.wrapper.active .qr-code {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.5s ease;
+}
+
+.download-btn,
+.btn-scan {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.download-btn button,
+.btn-scan button {
+  width: 100%; /* Tornar os botões retangulares */
+  border-radius: 5px; /* Manter uma leve borda arredondada */
+  margin-top: 10px;
+  font-size: 20px;
+  background-color: rgba(0, 220, 125, 0.455);
+}
+
+.download-btn img,
+.btn-scan img {
+  width: 2.8rem;
+  height: 2.8rem;
+}
+
+/* Estilos da modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 60%;
+    text-align: center;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: black;
+}

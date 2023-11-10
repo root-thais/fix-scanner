@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <title>Gerador de Qr Code</title>
+</head>
+
+<body>
+    <div class="wrapper">
+
+        <div id="message-container">
+           
+            <div id="success-modal" class="modal">
+                <div class="modal-content">
+                    <span class="close" id="close-success-modal">&times;</span>
+                    <p id="success-message" class="alert alert-success" role="alert"></p>
+                </div>
+            </div>
+
+          
+            <div id="error-modal" class="modal">
+                <div class="modal-content">
+                    <span class="close" id="close-error-modal">&times;</span>
+                    <p id="error-message" class="alert alert-danger" role="alert"></p>
+                </div>
+            </div>
+        </div>
+
+        <header>
+            <h1>Gerador de Qr Code</h1>
+            <p>Insira o número do Ticket a ser gerado</p>
+        </header>
+        <div class="form">
+            <input type="text" placeholder="Insira aqui">
+            <button class="btn btn-success"><i class="fa fa-qrcode"></i> Gerar Qr Code </button>
+        </div>
+        <div class="qr-code">
+            <img src="" alt="qrcode" class="img">
+        </div>
+
+        <div class="download-btn">
+            <button class="btn btn-primary"><i class="fa fa-download"></i> Gerar QR-CODE</button>
+        </div>
+
+
+        <div class="btn-scan">
+            <button class="btn btn-info">
+                <a href="scanner">
+                    <i class="fa fa-qrcode"></i> Acessar o Scanner
+                </a>
+            </button>
+        </div>
+
+    </div>
+
+
+    <script src="https://cdn.jsdelivr.net/gh/neocotic/qrious/dist/qrious.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+
+            const wrapper = document.querySelector(".wrapper"),
+                qrInput = wrapper.querySelector(".form input"),
+                generateBtn = wrapper.querySelector(".form button"),
+                qrImg = wrapper.querySelector(".qr-code .img"),
+                downloadBtn = document.querySelector(".download-btn");
+
+            generateBtn.addEventListener("click", () => {
+                let qrValue = qrInput.value;
+                if (!qrValue) return;
+
+                /*
+              @Author: Jarmison Paiva
+              este reggex é para validar a entrada dos tickets, será gerado apenas tipos numericos para o
+              -------------------------------------------------------------------------------------------
+              @Param qrValue: valor do input
+              */
+
+                if (!/^\d+$/.test(qrValue)) {
+                    showErrorModal('Tipo do ticket inserido invalido valor que foi inserido foi: ' + " " + qrValue);
+                }
+
+                generateBtn.innerText = "Gerando um Qr Code...";
+
+                /*
+                @Author: Jarmison Paiva
+                este fetch é apenas para gerar 1 ticket por vez, e verifica pela api os tickets gerados
+                */
+                fetch('/ad/ticket', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ sequencia: qrValue }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            showErrorModal("O Ticket Atual já foi inserido, ticket de número:" + " " + qrValue);
+                        } else {
+                            showSuccessModal("O ticket foi gerado com sucesso baixe e scannei !");
+                        }
+                    })
+                    .catch(error => {
+                        showErrorModal('Ocorreu um erro ao inserir o ticket, contatar com um administrador do aplicativo: ' + " " + qrValue);
+                    });
+
+                /*@Author: Jarmison Paiva
+                 Este fetch da api do gerador é para gerar todos os tickets por enquanto não sei por que cadastrar todos se pode ir cadastrando de 1 por 1 e verificando que da no mesmo inclusive
+                 será feito uma mod para ao cadastrar o ticker iterar cada 1 ate 170 e cacetada quando chegar nesse limite não será possivel cadastrar mais no bd
+                 seria mais util do que adicionar todos os tickets ........ validando isso nesse commit como não terá muita utilidadade deixarei aqui. deixarei comentado o codigo
+                 abaixo mas caso use so descomentar isso ai abaixo o codigo do fetch ate o catch
+                */
+
+                 /*fetch('/create-initial-tickets', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ sequencia: qrValue }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            showErrorModal("Erro ao gerar todos os tickets!");
+                        } else {
+                            showSuccessModal("Todos os ticket foi gerado com sucesso baixe e scannei !");
+                        }
+                    })
+                    .catch(error => {
+                        showErrorModal('Ocorreu um erro ao inserir o ticket, contatar com um administrador do aplicativo: ' + " " + qrValue);
+                    });
+                */
+
+                const qr = new QRious({
+                    value: qrValue,
+                    size: 150,
+                    foreground: "black",
+                    background: "white"
+                });
+
+                qrImg.src = qr.toDataURL();
+
+                generateBtn.innerText = "Gerar Qr Code";
+                wrapper.classList.add("active");
+                downloadBtn.style.display = 'block';
+            });
+
+            qrInput.addEventListener("keyup", () => {
+                if (!qrInput.value) {
+                    wrapper.classList.remove("active");
+                    downloadBtn.style.display = 'none';
+                }
+            });
+
+            downloadBtn.addEventListener("click", () => {
+                const canvas = document.createElement("canvas");
+                const ctx = canvas.getContext("2d");
+                canvas.width = qrImg.width;
+                canvas.height = qrImg.height;
+                ctx.drawImage(qrImg, 0, 0);
+
+                const downloadLink = document.createElement("a");
+                downloadLink.href = canvas.toDataURL();
+                downloadLink.download = "qrcode.png";
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+            });
+
+        });
+
+        document.getElementById('close-success-modal').addEventListener('click', () => {
+            closeModal('success-modal');
+        });
+
+        document.getElementById('close-error-modal').addEventListener('click', () => {
+            closeModal('error-modal');
+        });
+
+        /*@Author: Jarmison Paiva
+        Função para exibir o modal de sucesso
+        */
+        function showSuccessModal(message) {
+            const successModal = document.getElementById('success-modal');
+            const successMessage = document.getElementById('success-message');
+
+            successMessage.textContent = message;
+            successModal.style.display = 'block';
+        }
+
+        /*@Author: Jarmison Paiva
+        Função para exibir o modal de erro
+        */
+        function showErrorModal(message) {
+            const errorModal = document.getElementById('error-modal');
+            const errorMessage = document.getElementById('error-message');
+
+            errorMessage.textContent = message;
+            errorModal.style.display = 'block';
+        }
+
+        /*@Author: Jarmison Paiva
+       Função para fechar a modal
+       */
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.style.display = 'none';
+        }
+
+
+
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <title>QR CODE SCANNER</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            background-color: #fff;
+            border-radius: 7px;
+            margin-top: 20px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            font-size: 24px;
+        }
+
+        #video-container {
+            text-align: center;
+        }
+
+        #qr-video {
+            max-width: 100%;
+            box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        select.form-control {
+            width: 100%;
+        }
+
+        .input-group-text {
+            background-color: #007bff;
+            color: #fff;
+        }
+
+        input[type="file"] {
+            margin-top: 10px;
+        }
+
+        .btn {
+            margin-top: 10px;
+        }
+
+        hr {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container mt-4">
+        <h1>Scannear com a câmera:</h1>
+        <div id="video-container">
+            <video id="qr-video" class="rounded"></video>
+        </div>
+
+        <p><b>Dispositivo possui uma câmera: </b><span id="cam-has-camera"></span></p>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="scan-region-highlight-style-select">Tipo de seletor do scanner:</label>
+                    <select class="form-control" id="scan-region-highlight-style-select">
+                        <option value="default-style">Camera aberta selector amarelo</option>
+                        <option value="example-style-1">Camera aberta selector azul</option>
+                        <option value="example-style-2">Camera fechada</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="show-scan-region">
+                    <label class="form-check-label" for="show-scan-region">Região do canvas</label>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <label for="scan-region-highlight-style-select">Modos de visualização:</label>
+                <select class="form-control" id="inversion-mode-select">
+                    <option value="original">Scanner original modo dark</option>
+                    <option value="invert">Scanner com inversor de cores modo dark</option>
+                    <option value="both">Scannear ambos</option>
+                </select>
+                <br>
+            </div>
+
+        </div>
+
+        <div>
+            <b>Escolha a câmera vinculada ao seu dispositivo:</b>
+            <select class="form-control" id="cam-list">
+                <option value="environment" selected>Padrão</option>
+                <option value="user">Frente</option>
+            </select>
+        </div>
+
+        <b>Dispositivo possui flash integrado </b>
+        <span id="cam-has-flash"></span>
+        <div>
+            <button id="flash-toggle" class="btn btn-primary"> Flash: <span id="flash-state">off</span></button>
+        </div>
+        <br>
+        <b>QR code detectado por câmera: </b>
+        <div id="api-response"> <span id="cam-qr-result">Não foi possível encontrar o QR code ou não foi escaneado
+                nenhum
+                ainda</span>
+        </div>
+        <br>
+        <b>Última detecção: </b>
+        <span id="cam-qr-result-timestamp"></span>
+        <br>
+        <button type="button" class="btn btn-outline-primary" id="start-button">Iniciar</button>
+        <button type="button" class="btn btn-outline-danger" id="stop-button">Parar Detecção</button>
+        
+        <!-- AQUI É A RESPOSTA QUE APARECE DO NUMERO DO TICKET GERADO-->
+        <div id="api-response"> </div>
+
+
+    </div>
+
+    <script src="../qr-scanner.min.js"></script>
+
+    <!--<script src="../qr-scanner.umd.min.js"></script>-->
+    <!--<script src="../qr-scanner.legacy.min.js"></script>-->
+    <script type="module">
+        import QrScanner from "../qr-scanner.min.js";
+
+        const video = document.getElementById('qr-video');
+        const videoContainer = document.getElementById('video-container');
+        const camHasCamera = document.getElementById('cam-has-camera');
+        const camList = document.getElementById('cam-list');
+        const camHasFlash = document.getElementById('cam-has-flash');
+        const flashToggle = document.getElementById('flash-toggle');
+        const flashState = document.getElementById('flash-state');
+        const camQrResult = document.getElementById('cam-qr-result');
+        const camQrResultTimestamp = document.getElementById('cam-qr-result-timestamp');
+        const fileSelector = document.getElementById('file-selector');
+        const fileQrResult = document.getElementById('file-qr-result');
+
+        function setResult(label, result) {
+            console.log(result.data);
+            camQrResultTimestamp.textContent = new Date().toString();
+            label.style.color = 'teal';
+            clearTimeout(label.highlightTimeout);
+            label.highlightTimeout = setTimeout(() => (label.style.color = 'inherit'), 100);
+
+            if (result.data) {
+                const apiUrl = `/consult/invalidate/${result.data}`;
+
+                fetch(apiUrl)
+                    .then(response => response.json())
+                    .then(data => {
+                        showQRStatus(data.status, result.data);
+                    })
+                    .catch(error => {
+                        console.error('Erro na requisição à API:', error);
+                    });
+            }
+        }
+        function showQRStatus(status, id) {
+            const apiResponseDiv = document.getElementById('api-response');
+
+            if (status === false) {
+                apiResponseDiv.innerHTML = `O Ticket (ID: ${id}) não existe no banco de dados.`;
+                apiResponseDiv.style.display = 'block';
+            } else {
+                fetch(`/consult/ticket/${id}`)
+                    .then(response => {
+
+                        if (response.status === 404) {
+                            apiResponseDiv.innerHTML = `O Ticket (ID: ${id}) não existe no banco de dados. Foi gerado por um terceiro não valido.`;
+                        } else if (response.status !== 400) {
+                            apiResponseDiv.innerHTML = `O Ticket (ID: ${id}) existe no banco de dados e será marcado como invalido.`;
+                        } else {
+                            console.error('Erro na requisição à API:', response.status);
+                        }
+                        apiResponseDiv.style.display = 'block';
+                    })
+                    .catch(error => {
+                        console.error('Erro na requisição à API:', error);
+                    });
+            }
+        }
+
+        function showCameraQRStatus(status) {
+            const modal = document.getElementById('cameraQRStatusModal');
+            modal.style.display = 'block';
+
+            const qrStatus = document.getElementById('cameraQRStatus');
+            if (status) {
+                qrStatus.textContent = `Este QR Code da câmera (ID: ${id}) já foi consultado.`;
+            } else {
+                qrStatus.textContent = `Este QR Code da câmera (ID: ${id}) não existe no banco de dados.`;
+            }
+
+            document.getElementById('cameraQRStatusModalClose').addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+        }
+
+        window.addEventListener('click', (event) => {
+            const modal = document.getElementById('cameraQRStatusModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+   
+        // ####### Web Cam Scanning #######
+
+        const scanner = new QrScanner(video, result => setResult(camQrResult, result), {
+            onDecodeError: error => {
+                camQrResult.textContent = error;
+                camQrResult.style.color = 'inherit';
+            },
+            highlightScanRegion: true,
+            highlightCodeOutline: true,
+        });
+
+        const updateFlashAvailability = () => {
+            scanner.hasFlash().then(hasFlash => {
+                camHasFlash.textContent = hasFlash;
+                flashToggle.style.display = hasFlash ? 'inline-block' : 'none';
+            });
+        };
+
+        scanner.start().then(() => {
+            updateFlashAvailability();
+            // List cameras after the scanner started to avoid listCamera's stream and the scanner's stream being requested
+            // at the same time which can result in listCamera's unconstrained stream also being offered to the scanner.
+            // Note that we can also start the scanner after listCameras, we just have it this way around in the demo to
+            // start the scanner earlier.
+            QrScanner.listCameras(true).then(cameras => cameras.forEach(camera => {
+                const option = document.createElement('option');
+                option.value = camera.id;
+                option.text = camera.label;
+                camList.add(option);
+            }));
+        });
+
+        QrScanner.hasCamera().then(hasCamera => camHasCamera.textContent = hasCamera);
+
+        // for debugging
+        window.scanner = scanner;
+
+        document.getElementById('scan-region-highlight-style-select').addEventListener('change', (e) => {
+            videoContainer.className = e.target.value;
+            scanner._updateOverlay(); // reposition the highlight because style 2 sets position: relative
+        });
+
+        document.getElementById('show-scan-region').addEventListener('change', (e) => {
+            const input = e.target;
+            const label = input.parentNode;
+            label.parentNode.insertBefore(scanner.$canvas, label.nextSibling);
+            scanner.$canvas.style.display = input.checked ? 'block' : 'none';
+        });
+
+        document.getElementById('inversion-mode-select').addEventListener('change', event => {
+            scanner.setInversionMode(event.target.value);
+        });
+
+
+        document.getElementById('check-button').addEventListener('click', () => {
+            const isTicketConsulted = true;
+
+            const modal = document.getElementById('qrStatusModal');
+            modal.style.display = 'block';
+
+            const qrStatus = document.getElementById('qrStatus');
+
+            if (isTicketConsulted) {
+                qrStatus.textContent = 'Este QR Code já foi consultado e marcado como em uso.';
+            } else {
+                qrStatus.textContent = 'Este QR Code ainda não foi consultado e não foi marcado como em uso.';
+            }
+        });
+
+
+        document.querySelector('.close').addEventListener('click', () => {
+            const modal = document.getElementById('qrStatusModal');
+            modal.style.display = 'none';
+        });
+
+
+        window.addEventListener('click', (event) => {
+            const modal = document.getElementById('qrStatusModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        document.getElementById('check-button').addEventListener('click', () => {
+
+            const isTicketConsulted = true;
+            const apiResponseDiv = document.getElementById('api-response');
+
+            if (isTicketConsulted) {
+                apiResponseDiv.innerHTML = 'Este ticket já foi consultado e será marcado como ticket ja em uso.';
+                apiResponseDiv.style.display = 'block';
+            }
+            apiResponseDiv.style.display = 'none';
+        });
+
+        camList.addEventListener('change', event => {
+            scanner.setCamera(event.target.value).then(updateFlashAvailability);
+        });
+
+        flashToggle.addEventListener('click', () => {
+            scanner.toggleFlash().then(() => flashState.textContent = scanner.isFlashOn() ? 'on' : 'off');
+        });
+
+        document.getElementById('start-button').addEventListener('click', () => {
+            scanner.start();
+        });
+
+        document.getElementById('stop-button').addEventListener('click', () => {
+            scanner.stop();
+        });
+
+        // ####### File Scanning #######
+
+        fileSelector.addEventListener('change', event => {
+            const file = fileSelector.files[0];
+            if (!file) {
+                return;
+            }
+            QrScanner.scanImage(file, { returnDetailedScanResult: true })
+                .then(result => setResult(fileQrResult, result))
+                .catch(e => setResult(fileQrResult, { data: e || 'No QR code found.' }));
+        });
+
+    </script>
+
+    <style>
+        .form-check-input[type="checkbox"] {
+            width: 2.25rem;
+            /* Largura do switch */
+            height: 1rem;
+            /* Altura do switch */
+            position: relative;
+        }
+
+        .form-check-input[type="checkbox"]::before {
+            content: "";
+            position: absolute;
+            width: 1rem;
+            /* Largura da alça do switch */
+            height: 1rem;
+            /* Altura da alça do switch */
+            top: 0;
+            left: 0;
+            background-color: #fff;
+            /* Cor da alça do switch quando desligado */
+            border: 1px solid #ced4da;
+            /* Cor da borda da alça do switch */
+            border-radius: 1rem;
+            /* Arredondar as bordas da alça */
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .form-check-input[type="checkbox"]:checked::before {
+            transform: translateX(1.25rem);
+            /* Mover a alça para a direita quando ligado */
+            background-color: #007bff;
+            /* Cor da alça do switch quando ligado */
+            border: 1px solid #007bff;
+            /* Cor da borda da alça quando ligado */
+        }
+
+
+        div {
+            margin-bottom: 16px;
+        }
+
+        #video-container {
+            line-height: 0;
+        }
+
+        #video-container.example-style-1 .scan-region-highlight-svg,
+        #video-container.example-style-1 .code-outline-highlight {
+            stroke: #64a2f3 !important;
+        }
+
+        #video-container.example-style-2 {
+            position: relative;
+            width: max-content;
+            height: max-content;
+            overflow: hidden;
+        }
+
+        #video-container.example-style-2 .scan-region-highlight {
+            border-radius: 30px;
+            outline: rgba(0, 0, 0, .25) solid 50vmax;
+        }
+
+        #video-container.example-style-2 .scan-region-highlight-svg {
+            display: none;
+        }
+
+        #video-container.example-style-2 .code-outline-highlight {
+            stroke: rgba(255, 255, 255, .5) !important;
+            stroke-width: 15 !important;
+            stroke-dasharray: none !important;
+        }
+
+        #flash-toggle {
+            display: none;
+        }
+
+        hr {
+            margin-top: 32px;
+        }
+
+        input[type="file"] {
+            display: block;
+            margin-bottom: 16px;
+        }
+    </style>
+</body>
+
+</html>
